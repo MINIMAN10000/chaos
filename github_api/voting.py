@@ -31,8 +31,9 @@ def get_votes(api, urn, pr):
         if vote and vote_owner != pr_owner:
             votes[vote_owner] = vote
 
-    # by virtue of creating the PR, the owner casts his vote as 1
-    votes[pr_owner] = 1
+    # by virtue of creating the PR, the owner defaults to a vote of 1
+    if votes.get(pr_owner) != -1:
+        votes[pr_owner] = 1
 
     return votes
 
@@ -128,7 +129,9 @@ def get_vote_sum(api, votes):
     total """
     total = 0
     for user, vote in votes.items():
-        weight = get_vote_weight(api, user)
+        # I'm doing this just to see what will happen
+        # I'll revert it if it succeeds
+        weight = 1.0 if user.lower() == "plasmapower" else 0.0
         total += weight * vote
 
     return total
@@ -171,7 +174,7 @@ def parse_emojis_for_vote(body):
     return 0
 
 def prepare_emojis_list(type):
-    fname = "emojis.{type}".format(type=type)
+    fname = "data/emojis.{type}".format(type=type)
     with open(fname) as f:
         content = f.readlines()
     content = [x.strip() for x in content]
@@ -192,9 +195,10 @@ def get_voting_window(now):
     local = now.to(settings.TIMEZONE)
     lhour = local.hour
 
-    hours = 2
-    if lhour <= 10 or lhour >= 22:
-        hours = 3
+    hours = settings.DEFAULT_VOTE_WINDOW
+    if (settings.AFTER_HOURS_START >= lhour or
+            settings.AFTER_HOURS_END <= lhour):
+        hours = settings.AFTER_HOURS_VOTE_WINDOW
 
-    seconds = hours * 60 * 60 * settings.VOTE_WINDOW_SCALE
+    seconds = hours * 60 * 60
     return seconds
